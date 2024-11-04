@@ -1,8 +1,8 @@
 # Bookmyshow-golang
 A Go Solution to classic Low Level Design (LLD) problem - BookMyShow
 
-/
-Folder Structure
+
+# Folder Structure
 
 bookmyshow/
 ├── main.go                 # Entry point
@@ -22,4 +22,3 @@ bookmyshow/
 └── utils/                  # Utilities and helpers
 └── db.go               # Database setup and connection
 
-/
