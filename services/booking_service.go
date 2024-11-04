@@ -1,47 +1,73 @@
+// services/booking_service.go
 package services
 
 import (
+	"bookmyshow-golang/config"
 	"bookmyshow-golang/models"
+	"database/sql"
 	"fmt"
 )
 
 type BookingService interface {
 	CreateBooking(booking models.Booking) (int, error)
 	GetBookingByID(id int) (models.Booking, error)
-	CancelBooking(id int) error
+	GetBookingsByEventID(eventID int) ([]models.Booking, error)
 }
 
 type bookingService struct {
-	bookings []models.Booking
+	db *sql.DB
 }
 
 func NewBookingService() BookingService {
 	return &bookingService{
-		bookings: []models.Booking{},
+		db: config.DB,
 	}
 }
 
 func (s *bookingService) CreateBooking(booking models.Booking) (int, error) {
-	booking.ID = len(s.bookings) + 1
-	s.bookings = append(s.bookings, booking)
-	return booking.ID, nil
+	query := "INSERT INTO bookings (event_id, user_name, seats) VALUES (?, ?, ?)"
+	result, err := s.db.Exec(query, booking.EventID, booking.UserName, booking.Seats)
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return int(id), nil
 }
 
 func (s *bookingService) GetBookingByID(id int) (models.Booking, error) {
-	for _, booking := range s.bookings {
-		if booking.ID == id {
-			return booking, nil
+	var booking models.Booking
+	query := "SELECT id, event_id, user_name, seats, booking_time FROM bookings WHERE id = ?"
+	err := s.db.QueryRow(query, id).Scan(&booking.ID, &booking.EventID, &booking.UserName, &booking.Seats, &booking.BookingTime)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Booking{}, fmt.Errorf("booking not found")
 		}
+		return models.Booking{}, err
 	}
-	return models.Booking{}, fmt.Errorf("booking not found")
+	return booking, nil
 }
 
-func (s *bookingService) CancelBooking(id int) error {
-	for i, booking := range s.bookings {
-		if booking.ID == id {
-			s.bookings[i].Status = "canceled"
-			return nil
-		}
+func (s *bookingService) GetBookingsByEventID(eventID int) ([]models.Booking, error) {
+	query := "SELECT id, event_id, user_name, seats, booking_time FROM bookings WHERE event_id = ?"
+	rows, err := s.db.Query(query, eventID)
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Errorf("booking not found")
+	defer rows.Close()
+
+	bookings := []models.Booking{}
+	for rows.Next() {
+		var booking models.Booking
+		if err := rows.Scan(&booking.ID, &booking.EventID, &booking.UserName, &booking.Seats, &booking.BookingTime); err != nil {
+			return nil, err
+		}
+		bookings = append(bookings, booking)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return bookings, nil
 }
